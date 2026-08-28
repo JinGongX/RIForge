@@ -1,0 +1,90 @@
+{
+  "work_dir": "./data/models",
+  "modelscope_bin": "modelscope",
+  "models": [
+    {
+      "id": "qwen2.5-7b-instruct-bf16",
+      "modelscope_repo": "Qwen/Qwen2.5-7B-Instruct",
+      "local_dir": "Qwen2.5-7B-Instruct",
+      "quantize": {
+        "enabled": false
+      },
+      "deploy": {
+        "container_name": "vllm-qwen25-7b-bf16",
+        "image": "vllm/vllm-openai:v0.9.2",
+        "host_port": 8000,
+        "container_port": 8000,
+        "gpu_memory_utilization": 0.85,
+        "max_model_len": 4096,
+        "dtype": "bfloat16",
+        "shm_size_mb": 2048,
+        "extra_args": []
+      }
+    },
+    {
+      "id": "qwen2.5-7b-instruct-awq",
+      "modelscope_repo": "Qwen/Qwen2.5-7B-Instruct",
+      "local_dir": "Qwen2.5-7B-Instruct",
+      "quantize": {
+        "enabled": true,
+        "method": "awq",
+        "output_dir": "Qwen2.5-7B-Instruct-AWQ",
+        "script": "scripts/quantize_awq.py",
+        "python_bin": "python3",
+        "extra_args": ["--w-bit", "4", "--q-group-size", "128"]
+      },
+      "deploy": {
+        "container_name": "vllm-qwen25-7b-awq",
+        "image": "vllm/vllm-openai:v0.9.2",
+        "host_port": 8002,
+        "container_port": 8000,
+        "gpu_memory_utilization": 0.40,
+        "max_model_len": 4096,
+        "dtype": "float16",
+        "quantization": "awq",
+        "shm_size_mb": 2048,
+        "extra_args": []
+      }
+    },
+    {
+      "id": "llama3-8b-instruct-bf16",
+      "modelscope_repo": "LLM-Research/Meta-Llama-3-8B-Instruct",
+      "local_dir": "Meta-Llama-3-8B-Instruct",
+      "quantize": {
+        "enabled": false
+      },
+      "deploy": {
+        "container_name": "vllm-llama3-8b-bf16",
+        "image": "vllm/vllm-openai:v0.9.2",
+        "host_port": 8004,
+        "container_port": 8000,
+        "gpu_memory_utilization": 0.85,
+        "max_model_len": 4096,
+        "dtype": "bfloat16",
+        "shm_size_mb": 2048,
+        "extra_args": []
+      }
+    },
+    {
+      "id": "glm-4-9b-chat-bf16",
+      "modelscope_repo": "ZhipuAI/glm-4-9b-chat",
+      "local_dir": "glm-4-9b-chat",
+      "quantize": {
+        "enabled": false
+      },
+      "deploy": {
+        "container_name": "vllm-glm4-9b-bf16",
+        "image": "vllm/vllm-openai:v0.9.2",
+        "host_port": 8006,
+        "container_port": 8000,
+        "gpu_memory_utilization": 0.9,
+        "max_model_len": 4096,
+        "dtype": "bfloat16",
+        "shm_size_mb": 2048,
+        "extra_args": [
+          "--trust-remote-code"
+        ]
+      }
+    }
+  ]
+}
