@@ -62,6 +62,7 @@
 | vLLM 镜像 | 推理运行时 | 如 `vllm/vllm-openai:v0.9.2` |
 
 ```
+完整步骤：
 1、pip install modelscope
 2、pip install autoawq or pip3 install autoawq -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir
 3、docker pull vllm/vllm-openai:v0.9.2
