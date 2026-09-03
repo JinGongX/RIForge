@@ -1,5 +1,5 @@
 {
-  "work_dir": "./data/models",
+  "work_dir": "/data/models",
   "modelscope_bin": "modelscope",
   "models": [
     {

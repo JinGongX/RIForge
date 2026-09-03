@@ -155,7 +155,7 @@ Deploy
 ⸻
 
 📁 Project Structure
-
+```
 RIForge/
 ├── cmd/
 │   └── riforge/
@@ -187,16 +187,16 @@ RIForge/
 ├── go.mod
 ├── go.sum
 └── README.md
-
+```
 ⸻
 
 🔍 Core Modules
 
-cmd/riforge
+```cmd/riforge```
 
 程序入口。
 
-cmd/riforge/main.go
+```cmd/riforge/main.go```
 
 主要负责：
 
@@ -208,7 +208,7 @@ cmd/riforge/main.go
 6. 启动 Pipeline
 
 整体生命周期：
-
+```
 main
  │
  ├── Load Config
@@ -222,7 +222,7 @@ main
  └── Start TUI
        │
        └── Execute Pipeline
-
+```
 ⸻
 
 ⚙️ internal/config
@@ -236,7 +236,7 @@ main
 RIForge 当前定位是一个轻量级 CLI/TUI 工具，希望尽可能减少外部依赖。
 
 例如：
-
+```
 {
   "models": [
     {
@@ -253,9 +253,9 @@ RIForge 当前定位是一个轻量级 CLI/TUI 工具，希望尽可能减少外
     }
   ]
 }
-
+```
 配置层负责：
-
+```
 JSON
  ↓
 Unmarshal
@@ -263,7 +263,7 @@ Unmarshal
 Validate
  ↓
 Runtime Config
-
+```
 避免 Pipeline 内部直接依赖 JSON 结构。
 
 ⸻
@@ -279,23 +279,23 @@ RIForge 中比较核心的基础设施模块。
 因为模型下载、量化、Docker 部署本质上都会执行外部程序。
 
 例如：
-
+```
 Download
    └── python / huggingface-cli
 Quantize
    └── python quantize_awq.py
 Deploy
    └── docker run
-
+```
 因此没有必要在三个 Pipeline 中分别实现：
-
+```
 exec.Command(...)
 cmd.Stdout = ...
 cmd.Stderr = ...
 cmd.Run()
-
+```
 而是统一抽象成：
-
+```
 execx
   │
   ├── Command
@@ -303,7 +303,7 @@ execx
   ├── stdout streaming
   ├── stderr streaming
   └── cancellation
-
+```
 这样三个阶段可以共享同一套执行机制。
 
 ⸻
@@ -313,7 +313,7 @@ execx
 RIForge 的核心。
 
 当前 Pipeline 分为三个阶段：
-
+```
 ┌─────────────┐
 │   Download  │
 └──────┬──────┘
@@ -325,7 +325,7 @@ RIForge 的核心。
 ┌─────────────┐
 │    Deploy   │
 └─────────────┘
-
+```
 ⸻
 
 1. Download
@@ -339,7 +339,7 @@ pipeline/download.go
 Local Model Directory
 
 例如：
-
+```
 /data/models/
 └── Qwen2.5-7B-Instruct/
     ├── config.json
@@ -348,7 +348,7 @@ Local Model Directory
     ├── model-00001-of-00004.safetensors
     ├── ...
     └── ...
-
+```
 ⸻
 
 2. Quantize
@@ -358,13 +358,13 @@ pipeline/quantize.go
 负责模型量化。
 
 目前主要支持：
-
+```
 FP16 / BF16
       ↓
      AWQ
-
+```
 量化脚本：
-
+```
 scripts/quantize_awq.py
 
 Go Pipeline 负责调度 Python Script。
@@ -383,26 +383,26 @@ Save Quantized Model
 
 /data/models/
 └── Qwen2.5-7B-Instruct-AWQ/
-
+```
 这种设计将：
-
+```
 Go = Orchestration
 
 和：
 
 Python = Model Processing
-
+```
 进行了分离。
 
 后续可以非常容易扩展：
-
+```
 AWQ
 GPTQ
 GGUF
 FP8
 INT8
 ...
-
+```
 ⸻
 
 3. Deploy
@@ -416,11 +416,11 @@ pipeline/deploy.go
 OpenAI Compatible API
 
 例如：
-
+```
 curl http://localhost:8002/v1/chat/completions
-
+```
 请求：
-
+```
 {
   "model": "qwen2.5-7b-instruct-awq",
   "messages": [
@@ -430,9 +430,9 @@ curl http://localhost:8002/v1/chat/completions
     }
   ]
 }
-
+```
 因此从用户角度来看：
-
+```
 RIForge
    ↓
 选择模型
@@ -444,7 +444,7 @@ RIForge
 自动 Docker 部署
    ↓
 得到 OpenAI Compatible API
-
+```
 ⸻
 
 🖥 TUI
@@ -454,11 +454,11 @@ RIForge 当前 TUI 完全基于：
 Go Standard Library + ANSI Escape Sequence
 
 没有引入：
-
+```
 Bubble Tea
 tview
 Cobra
-
+```
 等第三方 UI 框架。
 
 核心目标是：
@@ -466,7 +466,7 @@ Cobra
 保持 RIForge 的轻量性和可控性。
 
 当前 TUI 可以承担：
-
+```
 ┌───────────────────────────────────────────┐
 │                 RIForge                   │
 │      LLM Runtime & Inference Forge        │
@@ -491,7 +491,7 @@ Cobra
 │  Starting vLLM...                         │
 │                                           │
 └───────────────────────────────────────────┘
-
+```
 后续如果 TUI 复杂度明显提升，再考虑引入专门的 TUI Framework。
 
 ⸻
@@ -500,12 +500,12 @@ Cobra
 
 RIForge 当前提供：
 
-scripts/quantize_awq.py
+```scripts/quantize_awq.py```
 
 用于 AWQ 量化。
 
 Go 不直接实现量化算法，而是负责：
-
+```
 Go
  │
  │ execute
@@ -517,7 +517,7 @@ AutoAWQ
  │
  ▼
 AWQ Model
-
+```
 这样既能够利用 Python AI 生态，又不会让整个项目变成一个 Python 项目。
 
 ⸻
@@ -529,14 +529,14 @@ AWQ Model
 configs/models.json
 
 目前用于配置两个实例：
-
+```
 Qwen2.5-7B BF16
        │
        └── :8000
 Qwen2.5-7B AWQ
        │
        └── :8002
-
+```
 最终可以同时运行：
 
                  ┌──────────────────┐
@@ -552,13 +552,13 @@ Qwen2.5-7B AWQ
           vLLM                      vLLM
 
 这个设计也为后续的：
-
+```
 Gateway
    ↓
 Model Registry
    ↓
 Multiple vLLM Instances
-
+```
 提供了基础。
 
 ⸻
@@ -568,7 +568,7 @@ Multiple vLLM Instances
 Requirements
 
 建议运行环境：
-
+```
 Linux
 Docker
 NVIDIA Driver
@@ -588,9 +588,9 @@ Docker NVIDIA Runtime
 vLLM
 
 版本之间能够正常兼容。
-
+```
 ⸻
-
+```
 Build
 
 git clone <your-repository>
@@ -600,13 +600,13 @@ go build -o riforge ./cmd/riforge
 运行：
 
 ./riforge
-
+```
 ⸻
 
 🔧 Pipeline Example
 
 例如选择：
-
+```
 Qwen2.5-7B-Instruct
 
 RIForge 执行：
@@ -643,7 +643,7 @@ INFO: Uvicorn running on 0.0.0.0:8002
 http://localhost:8002
 
 即可提供 OpenAI Compatible API。
-
+```
 ⸻
 
 🧩 Design Philosophy
