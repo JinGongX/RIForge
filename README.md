@@ -1,998 +1,187 @@
-# Riforge
+# RIForge
 
 ```
-    ____  _ ____                    
-   / __ \(_) __/___  _________ ____ 
+    ____  _ ____
+   / __ \(_) __/___  _________ ____
   / /_/ / / /_/ __ \/ ___/ __ `/ _ \
  / _, _/ / __/ /_/ / /  / /_/ /  __/
-/_/ |_/_/_/  \____/_/   \__, /\___/ 
-                       /____/       
+/_/ |_/_/_/  \____/_/   \__, /\___/
+                       /____/
 ```
 
-> 模型下载 / 量化 / 部署 自动化工具
+> **LLM Runtime & Inference Forge** —— 基于 Golang + TUI 的大模型推理服务自动化部署工具
 
-RIForge — LLM Runtime & Inference Forge
+[![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/Status-Active%20Development-yellow)]()
 
-一个基于 Golang + TUI 构建的大模型推理服务自动化部署工具。
+把 **模型下载 → 模型量化 → Docker/vLLM 部署** 串成一条可重复执行的自动化 Pipeline，让一个「模型文件」在几分钟内变成一个可以直接调用的 **OpenAI Compatible API**，从此告别手写一长串 `modelscope` / `docker run` 命令和反复踩坑。
 
-RIForge 致力于将：
+---
 
-模型下载 → 模型量化 → Docker 镜像/容器部署 → vLLM 推理服务
+## ✨ 核心特性
 
-串联成一条自动化 Pipeline，让大模型从“模型文件”快速变成一个可以直接调用的 OpenAI Compatible API。
+- **终端交互 TUI** —— 纯 Go 标准库实现，零第三方依赖；模型列表、阶段状态、实时彩色日志一屏掌控，Ctrl+C 优雅中断。
+- **JSON 配置驱动** —— 一个 `models.json` 描述全部流水线，启动即校验，缺字段 / 重复 ID 直接报错。
+- **ModelScope 下载** —— 一键拉取模型到指定目录，规避默认缓存嵌套路径的坑。
+- **AutoAWQ 量化（可选）** —— 按需启用、脚本化执行，自动处理 vLLM 兼容的 tokenizer 格式。
+- **Docker + vLLM 一键部署** —— GPU / 显存 / 端口 / 挂载等参数固化封装，启动即 OpenAI Compatible API。
+- **幂等可重跑** —— 已下载、已量化、运行中的容器自动跳过；改了参数可强制重建。
 
-未来将进一步扩展：
+## 🔁 Pipeline 工作流
 
-Kubernetes / GPU 调度 / AI Gateway / 服务注册 / 可观测性 / Vue3 管理控制台
+每条模型配置都是一条独立流水线，由 Runner 统一编排，三个阶段可随时单独重跑：
 
-最终形成一套轻量级、可扩展的 LLM Inference Infrastructure Platform。
-
-⸻
-
-✨ Features
-
-当前已实现
-
-* Golang TUI 交互
-* JSON 配置
-* 配置校验
-* 模型下载
-* AWQ 模型量化
-* Docker 自动部署
-
-
-规划中
-
-* Kubernetes 自动部署
-* GPU 资源调度
-* NVIDIA GPU Operator 集成
-* AI Gateway 服务注册
-* 模型服务自动注册
-* Prometheus / DCGM Exporter
-* Grafana Dashboard
-* 服务健康检查
-* 模型运行状态监控
-* Vue3 Web 管理控制台
-* TUI / Web 双管理入口
-* 一键安装完整 AI Inference Stack
-
-⸻
-
-🎯 为什么需要 RIForge？
-
-部署一个大模型推理服务，看起来只是： 1
-
-下载模型
-    ↓
-量化模型
-    ↓
-启动 vLLM
-
-但实际部署过程中通常还需要处理：
-
-模型下载
-    ↓
-模型格式检查
-    ↓
-量化
-    ↓
-模型目录管理
-    ↓
-CUDA / Driver / vLLM 兼容
-    ↓
-Docker GPU Runtime
-    ↓
-显存配置
-    ↓
-vLLM 参数配置
-    ↓
-端口映射
-    ↓
-服务启动
-    ↓
-健康检查
-    ↓
-Gateway 注册
-    ↓
-监控
-
-这些操作如果全部手动执行，不仅步骤多，而且非常容易出现：
-
-* 模型路径错误
-* Docker GPU 参数错误
-* vLLM 参数不一致
-* 量化环境污染
-* 模型重复下载
-* 容器端口冲突
-* GPU 显存配置不合理
-* 服务启动失败后难以定位
-
-RIForge 希望解决的就是这一层问题：
-
-把“大模型推理服务部署”从一系列命令，变成一个可重复执行的 Pipeline。
-
-⸻
-
-🏗 Architecture
-
-当前版本采用简单、低依赖的分层设计。
-
-                    ┌─────────────────────┐
-                    │      RIForge TUI    │
-                    │                     │
-                    │  Model Selection     │
-                    │  Pipeline Control    │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │      Pipeline       │
-                    │                     │
-                    │  Download           │
-                    │      ↓              │
-                    │  Quantize           │
-                    │      ↓              │
-                    │  Deploy             │
-                    └──────────┬──────────┘
-                               │
-             ┌─────────────────┼─────────────────┐
-             ▼                 ▼                 ▼
-       Model Download       AutoAWQ          Docker/vLLM
-             │                 │                 │
-             ▼                 ▼                 ▼
-        Model Files        AWQ Model       Inference API
-
-RIForge 当前核心 Pipeline：
-
-Download
-   ↓
-Quantize
-   ↓
-Deploy
-
-每个阶段都可以独立执行，同时由 Pipeline 负责统一编排。
-
-⸻
-
-📁 Project Structure
 ```
-RIForge/
-├── cmd/
-│   └── riforge/
-│       └── main.go
-│
-├── internal/
-│   ├── config/
-│   │   ├── config.go
-│   │   └── validate.go
-│   │
-│   ├── execx/
-│   │   └── exec.go
-│   │
-│   ├── pipeline/
-│   │   ├── pipeline.go
-│   │   ├── download.go
-│   │   ├── quantize.go
-│   │   └── deploy.go
-│   │
-│   └── tui/
-│       └── tui.go
-│
-├── scripts/
-│   └── quantize_awq.py
-│
-├── configs/
-│   └── models.json
-│
-├── go.mod
-├── go.sum
-└── README.md
+┌───────────────┐   ┌───────────────┐   ┌──────────────────┐
+│  ① Download   │ → │ ② Quantize    │ → │ ③ Deploy         │
+│   ModelScope  │   │  AutoAWQ (可选) │   │  Docker + vLLM   │
+└───────────────┘   └───────────────┘   └──────────────────┘
+        │                   │                    │
+   原始权重文件          AWQ 量化产物        OpenAI Compatible API
+                                        http://<host>:<port>/v1
 ```
-⸻
 
-🔍 Core Modules
+部署阶段内置的工程化细节（默认行为，无需手写）：
 
-```cmd/riforge```
+- `--gpus all` 传入 GPU；`--shm-size` 默认 2GB，避免 Bus error
+- 模型目录**只读挂载**进容器，容器无权改动模型文件
+- `--quantization awq` 仅在明确配置时传入，避免 bf16 权重误传导致启动失败
+- 自动带上 `--served-model-name`、`--port`、`--gpu-memory-utilization`、`--max-model-len` 等 vLLM 参数
 
-程序入口。
+## 🚀 快速开始
 
-```cmd/riforge/main.go```
+### 环境要求
 
-主要负责：
+| 依赖 | 用途 | 说明 |
+| --- | --- | --- |
+| Go ≥ 1.22 | 构建 | 仅标准库，无第三方依赖 |
+| modelscope CLI | 下载模型 | `pip install modelscope` |
+| Python 3 + autoawq | 量化（可选） | 仅启用量化时所需 `pip install autoawq` or `pip3 install autoawq -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir` |
+| Docker + NVIDIA Container Toolkit | 部署 | 需要 NVIDIA GPU && `docker pull vllm/vllm-openai:v0.9.2`  |
+| vLLM 镜像 | 推理运行时 | 如 `vllm/vllm-openai:v0.9.2` |
 
-1. 加载配置
-2. 配置校验
-3. 创建 Context
-4. 监听 Ctrl+C
-5. 启动 TUI
-6. 启动 Pipeline
-
-整体生命周期：
 ```
-main
- │
- ├── Load Config
- │
- ├── Validate Config
- │
- ├── Create Context
- │
- ├── Handle SIGINT
- │
- └── Start TUI
-       │
-       └── Execute Pipeline
+1、pip install modelscope
+2、pip install autoawq or pip3 install autoawq -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir
+3、docker pull vllm/vllm-openai:v0.9.2
+环境配置后直接运行程序
+启动rigorge
+go build -o riforge ./cmd/riforge
+./riforge -config configs/models.json
+再选择流水线即可
 ```
-⸻
+### 构建 & 运行
 
-⚙️ internal/config
+```bash
+# 1. 准备配置（按需修改 work_dir 与模型列表）
+cp configs/models.json configs/my-models.json
 
-负责 RIForge 的配置模型和配置校验。
-
-目前使用 JSON 而不是 YAML。
-
-原因很简单：
-
-RIForge 当前定位是一个轻量级 CLI/TUI 工具，希望尽可能减少外部依赖。
-
-例如：
-```
-{
-  "models": [
-    {
-      "name": "qwen2.5-7b-bf16",
-      "model_path": "/data/models/Qwen2.5-7B-Instruct",
-      "port": 8000,
-      "dtype": "bfloat16"
-    },
-    {
-      "name": "qwen2.5-7b-awq",
-      "model_path": "/data/models/Qwen2.5-7B-Instruct-AWQ",
-      "port": 8002,
-      "quantization": "awq"
-    }
-  ]
-}
-```
-配置层负责：
-```
-JSON
- ↓
-Unmarshal
- ↓
-Validate
- ↓
-Runtime Config
-```
-避免 Pipeline 内部直接依赖 JSON 结构。
-
-⸻
-
-🚀 internal/execx
-
-RIForge 中比较核心的基础设施模块。
-
-负责统一封装：
-
-启动子进程 + 实时输出 stdout/stderr + Context 取消
-
-因为模型下载、量化、Docker 部署本质上都会执行外部程序。
-
-例如：
-```
-Download
-   └── python / huggingface-cli
-Quantize
-   └── python quantize_awq.py
-Deploy
-   └── docker run
-```
-因此没有必要在三个 Pipeline 中分别实现：
-```
-exec.Command(...)
-cmd.Stdout = ...
-cmd.Stderr = ...
-cmd.Run()
-```
-而是统一抽象成：
-```
-execx
-  │
-  ├── Command
-  ├── Context
-  ├── stdout streaming
-  ├── stderr streaming
-  └── cancellation
-```
-这样三个阶段可以共享同一套执行机制。
-
-⸻
-
-🔄 internal/pipeline
-
-RIForge 的核心。
-
-当前 Pipeline 分为三个阶段：
-```
-┌─────────────┐
-│   Download  │
-└──────┬──────┘
-       ↓
-┌─────────────┐
-│   Quantize  │
-└──────┬──────┘
-       ↓
-┌─────────────┐
-│    Deploy   │
-└─────────────┘
-```
-⸻
-
-1. Download
-
-pipeline/download.go
-
-负责模型下载。
-
-目标是将远程模型转换成：
-
-Local Model Directory
-
-例如：
-```
-/data/models/
-└── Qwen2.5-7B-Instruct/
-    ├── config.json
-    ├── tokenizer.json
-    ├── tokenizer_config.json
-    ├── model-00001-of-00004.safetensors
-    ├── ...
-    └── ...
-```
-⸻
-
-2. Quantize
-
-pipeline/quantize.go
-
-负责模型量化。
-
-目前主要支持：
-```
-FP16 / BF16
-      ↓
-     AWQ
-```
-量化脚本：
-```
-scripts/quantize_awq.py
-
-Go Pipeline 负责调度 Python Script。
-
-Python Script 负责：
-
-Load Model
-    ↓
-Calibration
-    ↓
-AWQ Quantization
-    ↓
-Save Quantized Model
-
-最终生成：
-
-/data/models/
-└── Qwen2.5-7B-Instruct-AWQ/
-```
-这种设计将：
-```
-Go = Orchestration
-
-和：
-
-Python = Model Processing
-```
-进行了分离。
-
-后续可以非常容易扩展：
-```
-AWQ
-GPTQ
-GGUF
-FP8
-INT8
-...
-```
-⸻
-
-3. Deploy
-
-pipeline/deploy.go
-
-负责通过 Docker 部署 vLLM。
-
-最终生成一个可以直接访问的：
-
-OpenAI Compatible API
-
-例如：
-```
-curl http://localhost:8002/v1/chat/completions
-```
-请求：
-```
-{
-  "model": "qwen2.5-7b-instruct-awq",
-  "messages": [
-    {
-      "role": "user",
-      "content": "你好"
-    }
-  ]
-}
-```
-因此从用户角度来看：
-```
-RIForge
-   ↓
-选择模型
-   ↓
-自动下载
-   ↓
-自动量化
-   ↓
-自动 Docker 部署
-   ↓
-得到 OpenAI Compatible API
-```
-⸻
-
-🖥 TUI
-
-RIForge 当前 TUI 完全基于：
-
-Go Standard Library + ANSI Escape Sequence
-
-没有引入：
-```
-Bubble Tea
-tview
-Cobra
-```
-等第三方 UI 框架。
-
-核心目标是：
-
-保持 RIForge 的轻量性和可控性。
-
-当前 TUI 可以承担：
-```
-┌───────────────────────────────────────────┐
-│                 RIForge                   │
-│      LLM Runtime & Inference Forge        │
-├───────────────────────────────────────────┤
-│                                           │
-│  Select Model                             │
-│                                           │
-│  > Qwen2.5-7B-Instruct                    │
-│    Qwen2.5-7B-Instruct-AWQ                │
-│                                           │
-│  Pipeline                                 │
-│                                           │
-│  [✓] Download                             │
-│  [✓] Quantize                             │
-│  [✓] Deploy                               │
-│                                           │
-├───────────────────────────────────────────┤
-│  Logs                                     │
-│                                           │
-│  Downloading model...                     │
-│  Quantizing model...                      │
-│  Starting vLLM...                         │
-│                                           │
-└───────────────────────────────────────────┘
-```
-后续如果 TUI 复杂度明显提升，再考虑引入专门的 TUI Framework。
-
-⸻
-
-🐍 AutoAWQ
-
-RIForge 当前提供：
-
-```scripts/quantize_awq.py```
-
-用于 AWQ 量化。
-
-Go 不直接实现量化算法，而是负责：
-```
-Go
- │
- │ execute
- ▼
-Python
- │
- ▼
-AutoAWQ
- │
- ▼
-AWQ Model
-```
-这样既能够利用 Python AI 生态，又不会让整个项目变成一个 Python 项目。
-
-⸻
-
-📦 Model Configuration
-
-示例配置：
-
-configs/models.json
-
-目前用于配置两个实例：
-```
-Qwen2.5-7B BF16
-       │
-       └── :8000
-Qwen2.5-7B AWQ
-       │
-       └── :8002
-```
-最终可以同时运行：
-
-                 ┌──────────────────┐
-                 │      RIForge     │
-                 └────────┬─────────┘
-                          │
-             ┌────────────┴────────────┐
-             ▼                         ▼
-      BF16 Inference             AWQ Inference
-          :8000                     :8002
-             │                         │
-             ▼                         ▼
-          vLLM                      vLLM
-
-这个设计也为后续的：
-```
-Gateway
-   ↓
-Model Registry
-   ↓
-Multiple vLLM Instances
-```
-提供了基础。
-
-⸻
-
-🚀 Quick Start
-
-Requirements
-
-建议运行环境：
-```
-Linux
-Docker
-NVIDIA Driver
-NVIDIA Container Toolkit
-Python 3.x
-Go 1.27+
-NVIDIA GPU
-
-同时需要保证：
-
-NVIDIA Driver
-      ↓
-CUDA
-      ↓
-Docker NVIDIA Runtime
-      ↓
-vLLM
-
-版本之间能够正常兼容。
-```
-⸻
-```
-Build
-
-git clone <your-repository>
-cd RIForge
+# 2. 构建
 go build -o riforge ./cmd/riforge
 
-运行：
-
-./riforge
+# 3. 启动 TUI：输入编号执行对应流水线，输入 q 退出
+./riforge -config configs/my-models.json
 ```
-⸻
 
-🔧 Pipeline Example
+运行效果（示意）：
 
-例如选择：
 ```
-Qwen2.5-7B-Instruct
-
-RIForge 执行：
-
-Step 1 — Download
-
-Downloading model...
-████████████████████ 100%
-
-↓
-
-Step 2 — Quantize
-
-Quantizing model...
-Loading model...
-Calibrating...
-Quantizing...
-Saving AWQ model...
-Done.
-
-↓
-
-Step 3 — Deploy
-
-Starting Docker container...
-vLLM starting...
-INFO: API server started
-INFO: Uvicorn running on 0.0.0.0:8002
-
-↓
-
-最终：
-
-http://localhost:8002
-
-即可提供 OpenAI Compatible API。
+可用流水线：
+   1) qwen2.5-7b-instruct-bf16         [无量化] 端口 8000
+       下载:○ 未完成  量化:✓ 已就绪  部署:○ 未部署
+   2) qwen2.5-7b-instruct-awq          [量化:awq] 端口 8002
+       下载:○ 未完成  量化:○ 未完成  部署:○ 未部署
+   3) llama3-8b-instruct-bf16          [无量化] 端口 8004
+       下载:○ 未完成  量化:✓ 已就绪  部署:○ 未部署
+   ...
+输入模型编号执行流水线，输入 q 退出： 2
 ```
-⸻
 
-🧩 Design Philosophy
-
-RIForge 当前遵循几个核心原则。
-
-1. Orchestration First
-
-RIForge 不负责重新实现：
-
-HuggingFace
-AutoAWQ
-vLLM
-Docker
-Kubernetes
-Prometheus
-
-而是负责把这些能力：
-
-组合
-编排
-配置
-自动化
-
-形成完整的部署流程。
-
-⸻
-
-2. CLI First
-
-首先保证：
-
-命令行
-TUI
-
-能够独立完成部署。
-
-这样即使没有 Web UI，也可以直接在服务器上使用。
-
-⸻
-
-3. Infrastructure as Pipeline
-
-将模型部署抽象为：
-
-Pipeline
-
-而不是：
-
-一堆 Shell Command
-
-因此未来可以自然扩展：
-
-Download
-    ↓
-Quantize
-    ↓
-Build
-    ↓
-Deploy
-    ↓
-Register
-    ↓
-Observe
-
-⸻
-
-🗺 Roadmap
-
-RIForge 后续计划逐步从：
-
-TUI Deployment Tool
-
-演进成：
-
-LLM Inference Platform
-
-⸻
-
-Phase 1 — Local Runtime
-
-当前阶段
-
-                 RIForge
-                    │
-        ┌───────────┼───────────┐
-        ▼           ▼           ▼
-     Download    Quantize     Deploy
-                                │
-                                ▼
-                               vLLM
-
-目标：
-
-一键完成模型 → 推理服务。
-
-⸻
-
-Phase 2 — Kubernetes
-
-下一阶段引入：
-
-Kubernetes
-NVIDIA Device Plugin
-GPU Operator
-
-Pipeline 从：
-
-Docker Run
-
-扩展为：
-
-Docker
-  │
-  └── Kubernetes
-
-最终：
-
-RIForge
-   │
-   ▼
-Kubernetes
-   │
-   ├── Deployment
-   ├── Service
-   ├── ConfigMap
-   └── GPU Resource
-          │
-          ▼
-       NVIDIA GPU
-
-⸻
-
-Phase 3 — AI Gateway
-
-当模型实例越来越多：
-
-vLLM-1
-vLLM-2
-vLLM-3
-vLLM-4
-
-需要统一入口：
-
-                 AI Gateway
-                     │
-          ┌──────────┼──────────┐
-          ▼          ▼          ▼
-       vLLM-1     vLLM-2     vLLM-3
-
-RIForge 将负责：
-
-部署服务
-   ↓
-服务注册
-   ↓
-Gateway Registration
-   ↓
-统一 API
-
-例如：
-
-/v1/chat/completions
-
-由 Gateway 根据：
-
-model
-tenant
-load
-GPU
-health
-
-进行路由。
-
-⸻
-
-Phase 4 — Observability
-
-增加：
-
-Prometheus
-DCGM Exporter
-Grafana
-
-建立完整的 GPU / Inference Observability。
-
-重点指标包括：
-
-GPU Utilization
-GPU Memory
-Temperature
-Power
-Requests
-Tokens
-TTFT
-TPOT
-Throughput
-Latency
-Error Rate
-
-最终：
-
-                 RIForge
-                    │
-                    ▼
-              Inference Stack
-                    │
-          ┌─────────┴─────────┐
-          ▼                   ▼
-       vLLM                 Gateway
-          │                   │
-          └─────────┬─────────┘
-                    ▼
-                Metrics
-                    │
-             ┌──────┴──────┐
-             ▼             ▼
-         Prometheus      Grafana
-
-⸻
-
-Phase 5 — Vue3 Management Console
-
-最终增加：
-
-Vue3
-TypeScript
-Vite
-
-管理控制台。
-
-TUI 负责：
-
-Server / DevOps
-
-Web Console 负责：
-
-Platform Management
-
-例如：
-
-┌──────────────────────────────────────────────┐
-│ RIForge Console                              │
-├────────────┬─────────────────────────────────┤
-│ Dashboard  │ GPU                             │
-│ Models     │                                 │
-│ Instances  │ GPU 0     ███████░░  78%        │
-│ Deploy     │ GPU 1     ████░░░░░  42%        │
-│ Gateway    │                                 │
-│ Monitor    │ Inference                       │
-│ Settings   │ Requests   12,321               │
-│            │ Tokens     2.31M                │
-│            │ P95        183ms                │
-└────────────┴─────────────────────────────────┘
-
-最终形成：
-
-                Vue3 Console
-                     │
-                     ▼
-                 RIForge API
-                     │
-          ┌──────────┼──────────┐
-          ▼          ▼          ▼
-       Models     Gateway    Monitor
-          │          │          │
-          └──────────┼──────────┘
-                     ▼
-                Kubernetes
-                     │
-                     ▼
-                 GPU Cluster
-
-⸻
-
-🌐 Final Vision
-
-RIForge 最终并不只是：
-
-一个 vLLM 部署脚本。
-
-而是希望逐步形成：
-
-                  RIForge
-                     │
-        ┌────────────┼────────────┐
-        ▼            ▼            ▼
-      TUI          API          Vue3
-        │            │            │
-        └────────────┼────────────┘
-                     ▼
-              Inference Control
-                     │
-        ┌────────────┼────────────┐
-        ▼            ▼            ▼
-     Models       Gateway      Observe
-        │            │            │
-        └────────────┼────────────┘
-                     ▼
-                Kubernetes
-                     │
-                     ▼
-                 GPU Cluster
-                     │
-          ┌──────────┼──────────┐
-          ▼          ▼          ▼
-        vLLM       vLLM       vLLM
-
-最终目标：
-
-让模型部署像安装软件一样简单，让 GPU 推理服务像 Kubernetes Workload 一样可管理。
-
-⸻
-
-🤝 Contributing
-
-欢迎提交：
-
-* Issue
-* Feature
-* Pull Request
-* Model Adapter
-* Quantization Pipeline
-* Deployment Backend
-* Kubernetes Provider
-* Observability Integration
-
-⸻
-
-📄 License
-
-License: TBD
-
-⸻
-
-⭐ Project Status
-
-RIForge is currently under active development.
-
-当前重点：
-
-✓ Model Download
-✓ Model Quantization
-✓ Docker Deployment
-✓ vLLM Runtime
-✓ TUI
-→ Kubernetes
-→ Gateway
-→ Observability
-→ AI Inference Platform
-
-RIForge 的最终方向不是做一个更复杂的 docker run 包装器，而是构建一套围绕 LLM Deployment → Runtime → Gateway → Observability → Management 的自动化基础设施。
+### 调用推理服务
+
+流水线跑完后，服务即已就绪，直接按 OpenAI 格式调用：
+
+```bash
+curl http://localhost:8002/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen2.5-7b-instruct-awq",
+    "messages": [{"role": "user", "content": "你好，介绍一下你自己"}]
+  }'
+```
+
+## ⚙️ 配置说明
+
+以 `configs/models.json` 为例（下方为带注释的示意，实际文件为合法 JSON）：
+
+```jsonc
+{
+  "work_dir": "/data/models",            // 所有模型文件的根目录（建议放数据盘）
+  "modelscope_bin": "modelscope",        // modelscope CLI 路径（可选，默认 "modelscope"）
+  "models": [
+    {
+      "id": "qwen2.5-7b-instruct-awq",               // 流水线唯一标识，同时作为 served-model-name
+      "modelscope_repo": "Qwen/Qwen2.5-7B-Instruct", // ModelScope 仓库
+      "local_dir": "Qwen2.5-7B-Instruct",            // 下载后的存放目录
+      "quantize": {                                  // 量化阶段（不启用可整块省略）
+        "enabled": true,
+        "method": "awq",
+        "output_dir": "Qwen2.5-7B-Instruct-AWQ",
+        "script": "scripts/quantize_awq.py",
+        "python_bin": "python3"
+      },
+      "deploy": {                                    // Docker + vLLM 部署
+        "container_name": "vllm-qwen25-7b-awq",
+        "image": "vllm/vllm-openai:v0.9.2",
+        "host_port": 8002,
+        "gpu_memory_utilization": 0.4,
+        "max_model_len": 4096,
+        "quantization": "awq",
+        "dtype": "float16"
+      }
+    }
+  ]
+}
+```
+
+**deploy 字段速览**：`container_name` 容器名 · `image` vLLM 镜像 · `host_port` 宿主机端口 · `gpu_memory_utilization` 显存利用率 · `max_model_len` 最大上下文 · `dtype` 精度（量化模型默认 `float16`）· `quantization` 量化格式（如 `awq`）· `extra_args` 追加 vLLM 参数 · `extra_docker_args` 追加 `docker run` 参数。
+
+## 📁 项目结构
+
+```
+RIForge/
+├── cmd/riforge/             # 程序入口
+├── internal/
+│   ├── config/              # 配置加载与校验
+│   ├── execx/               # 子进程执行与日志流式转发
+│   ├── pipeline/            # Runner 编排 + 下载/量化/部署三阶段
+│   └── tui/                 # 终端交互界面
+├── scripts/quantize_awq.py  # AutoAWQ 量化脚本
+├── configs/models.json      # 示例配置（内置 4 条流水线）
+├── go.mod
+└── README.md
+```
+
+**设计要点**：Pipeline 通过 `StageUpdate` 事件流实时上报进度，TUI 与未来要加的 HTTP API / Web 控制台可以复用同一条通道；每个阶段相互独立、可替换（例如把 Docker 部署换成 Kubernetes Provider 时，下载与量化阶段完全不用改）。
+
+## 🗺️ Roadmap
+
+**已完成**
+
+- [x] Golang TUI 交互 · JSON 配置 + 校验
+- [x] ModelScope 模型下载 · AutoAWQ 量化 · Docker + vLLM 部署
+- [x] 幂等检查 · 强制重建 · Ctrl+C 优雅中断 · 实时彩色日志
+
+**规划中**
+
+- [ ] Kubernetes 自动部署 · GPU 资源调度 · NVIDIA GPU Operator 集成
+- [ ] AI Gateway 服务注册与统一路由
+- [ ] 可观测性：Prometheus / DCGM Exporter / Grafana
+- [ ] Vue3 管理控制台（TUI / Web 双管理入口）
+
+最终愿景：让模型部署像安装软件一样简单，让 GPU 推理服务像 Kubernetes Workload 一样可管理 —— 一套轻量、可扩展的 **LLM Inference Infrastructure Platform**。
+
+## 📄 License
+
+[MIT](LICENSE)
