@@ -14,6 +14,7 @@
 [![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-yellow)]()
+[![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FJinGongX%2FRIForge&countColor=%23f47373)](https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FJinGongX%2FRIForge)
 
 把 **模型下载 → 模型量化 → Docker/vLLM 部署** 串成一条可重复执行的自动化 Pipeline，让一个「模型文件」在几分钟内变成一个可以直接调用的 **OpenAI Compatible API**，从此告别手写一长串 `modelscope` / `docker run` 命令和反复踩坑。
 
